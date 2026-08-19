@@ -9,7 +9,6 @@ import urllib.parse
 from datetime import datetime
 import threading
 
-# Ensure UTF-8 console output
 if sys.platform.startswith('win'):
     try:
         sys.stdout.reconfigure(encoding='utf-8')
@@ -17,16 +16,12 @@ if sys.platform.startswith('win'):
     except Exception:
         pass
 
-# Port dynamically read from cloud environment (Render, Railway, Heroku) or default to 8080
 PORT = int(os.environ.get("PORT", 8080))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-# Multi-room state store: { room_code: { ...room_state... } }
 rooms = {}
 rooms_lock = threading.Lock()
-
-# SSE subscribers mapped by room_code: { room_code: [wfile1, wfile2] }
 room_subscribers = {}
 subscribers_lock = threading.Lock()
 
@@ -94,7 +89,6 @@ def broadcast_room_state(code):
         room_subscribers[code] = subs
 
 def check_all_rooms_scheduler():
-    """Checks scheduled alarms across all active couple rooms"""
     last_checked_minute = None
     while True:
         try:
@@ -119,6 +113,18 @@ def check_all_rooms_scheduler():
 
 scheduler_thread = threading.Thread(target=check_all_rooms_scheduler, daemon=True)
 scheduler_thread.start()
+
+def find_file(filename):
+    candidates = [
+        os.path.join(STATIC_DIR, filename),
+        os.path.join(BASE_DIR, filename),
+        os.path.join(STATIC_DIR, os.path.basename(filename)),
+        os.path.join(BASE_DIR, os.path.basename(filename))
+    ]
+    for path in candidates:
+        if os.path.exists(path) and os.path.isfile(path):
+            return path
+    return None
 
 class LoveCompanionHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -168,31 +174,37 @@ class LoveCompanionHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         elif path == "/" or path == "/index.html":
-            file_path = os.path.join(STATIC_DIR, "index.html")
-            self.serve_file(file_path, "text/html; charset=utf-8")
-            return
-
-        elif path == "/manifest.json":
-            file_path = os.path.join(STATIC_DIR, "manifest.json")
-            self.serve_file(file_path, "application/manifest+json")
-            return
-
-        elif path == "/sw.js":
-            file_path = os.path.join(STATIC_DIR, "sw.js")
-            self.serve_file(file_path, "application/javascript")
-            return
-
-        elif path.startswith("/static/"):
-            rel_path = path[len("/static/"):]
-            file_path = os.path.join(STATIC_DIR, rel_path)
-            if os.path.exists(file_path) and os.path.isfile(file_path):
-                mime, _ = mimetypes.guess_type(file_path)
-                if file_path.endswith(".svg"):
-                    mime = "image/svg+xml"
-                self.serve_file(file_path, mime or "application/octet-stream")
+            file_path = find_file("index.html")
+            if file_path:
+                self.serve_file(file_path, "text/html; charset=utf-8")
                 return
 
-        self.send_error(404, "File not found")
+        elif path == "/manifest.json":
+            file_path = find_file("manifest.json")
+            if file_path:
+                self.serve_file(file_path, "application/manifest+json")
+                return
+
+        elif path == "/sw.js":
+            file_path = find_file("sw.js")
+            if file_path:
+                self.serve_file(file_path, "application/javascript")
+                return
+
+        clean_name = path.replace("/static/", "").lstrip("/")
+        file_path = find_file(clean_name)
+        if file_path:
+            mime, _ = mimetypes.guess_type(file_path)
+            if file_path.endswith(".svg"):
+                mime = "image/svg+xml"
+            elif file_path.endswith(".css"):
+                mime = "text/css"
+            elif file_path.endswith(".js"):
+                mime = "application/javascript"
+            self.serve_file(file_path, mime or "application/octet-stream")
+            return
+
+        self.send_error(404, f"File not found: {path}")
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
