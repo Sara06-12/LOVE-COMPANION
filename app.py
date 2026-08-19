@@ -1,25 +1,3 @@
-Ran command: `py app.py`
-Ran command: `py -c "import urllib.request; res = urllib.request.urlopen('http://localhost:8080/'); print('STATUS:', res.status); print('LENGTH:', len(res.read()))"`
-
-The **404 "File not found: /"** error happened because on GitHub, only `app.py` was uploaded without the HTML/CSS files.
-
-### 💡 The Permanent Fix:
-I have packaged the **ENTIRE app (all the screens, colors, melodies, audio synthesizer, and backend) into ONE single self-contained file: `app.py`**!
-
-This means you **only need this ONE single file (`app.py`)** on GitHub. No other folders or files are required, and it will **never show a 404 or 500 error again**!
-
----
-
-### 📋 How to Update It on GitHub (Takes 1 Minute):
-
-1. Go to your repository on **[github.com](https://github.com)**.
-2. Click on **`app.py`** $\rightarrow$ Click the **Pencil icon ✏️ (Edit this file)**.
-3. Select everything (`Ctrl + A`), delete it, and paste the code below:
-
-<details open>
-<summary><b>👉 Click here to view & copy the complete all-in-one <code>app.py</code>:</b></summary>
-
-```python
 import http.server
 import socketserver
 import json
@@ -30,7 +8,6 @@ import urllib.parse
 from datetime import datetime
 import threading
 
-# Ensure UTF-8 console output
 if sys.platform.startswith('win'):
     try:
         sys.stdout.reconfigure(encoding='utf-8')
@@ -40,7 +17,6 @@ if sys.platform.startswith('win'):
 
 PORT = int(os.environ.get("PORT", 8080))
 
-# Multi-room state store
 rooms = {}
 rooms_lock = threading.Lock()
 room_subscribers = {}
@@ -412,7 +388,7 @@ INDEX_HTML = """<!DOCTYPE html>
               <div class="chip" style="background: #00e676;" title="Mint Serenity" onclick="handleSetLampColor('#00e676', 'Mint Serenity')"></div>
             </div>
             <div class="lamp-control-row">
-              <input type="color" id="lampColorPicker" value="#ff4081" onchange="handleSetLampColor(this.value, 'Custom Mood')" style="width: 40px; height: 36px; padding: 2px; border: none; cursor: pointer; border-radius: 8px;">
+              <input type="color" id="lampColorPicker" value="#ff4081" onchange="handleSetLampColor(this.value, 'Custom Mood')" style="width: 40px; height: 36px; padding: 2px; border: none; cursor: border-radius: 8px;">
               <span id="activeLampNameA" style="font-size: 0.85rem; color: var(--text-muted);">Romantic Rose</span>
             </div>
           </div>
@@ -875,6 +851,10 @@ INDEX_HTML = """<!DOCTYPE html>
 </body>
 </html>"""
 
+class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
 class LoveCompanionHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -943,7 +923,6 @@ class LoveCompanionHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(ICON_SVG.encode("utf-8"))
             return
 
-        # Default: Always serve the complete embedded HTML page
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
@@ -1084,12 +1063,8 @@ class LoveCompanionHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data).encode("utf-8"))
 
-class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    daemon_threads = True
-    allow_reuse_address = True
-
 def run():
-    server = ThreadedHTTPServer(("", PORT), LoveCompanionHandler)
+    server = ThreadedHTTPServer(("0.0.0.0", PORT), LoveCompanionHandler)
     print("="*60)
     print(f"   💖 LOVE COMPANION RUNNING ON PORT {PORT}! 💖")
     print("="*60)
@@ -1100,9 +1075,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-```
-</details>
-
-4. Click the green **"Commit changes"** button on GitHub.
-5. Wait **30 to 45 seconds** for Render to finish updating.
-6. Open your link `https://love-companion.onrender.com` on your phone! It will now load smoothly with the glowing interface and all features working!
